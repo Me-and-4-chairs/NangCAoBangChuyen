@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nhận diện bằng YOLO</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #2d89ef;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+        nav button {
+            padding: 0.7rem 1.5rem;
+            margin: 0 10px;
+            border: none;
+            background-color: #0078d7;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        nav button:hover {
+            background-color: #005ea6;
+        }
+        .tab-content {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        select, input[type="file"], button {
+            margin: 1rem 0;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+        img {
+            max-width: 90%;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        #resultArea {
+            font-weight: bold;
+            color: green;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>🧠 Ứng dụng Nhận Diện Bằng YOLO</header>
+
+    <nav>
+        <button onclick="showTab('image-tab')">🖼️ Nhận diện ảnh</button>
+        <button onclick="showTab('camera-tab')">📹 Nhận diện camera</button>
+    </nav>
+
+    <!-- TAB 1: Nhận diện Ảnh -->
+    <div id="image-tab" class="tab-content active">
+        <h2>Nhận diện ảnh</h2>
+        <label for="imageModelSelect">Chọn mô hình:</label>
+        <select id="imageModelSelect">
+            {% for model in model_names %}
+                <option value="{{ model }}">{{ model }}</option>
+            {% endfor %}
+        </select><br>
+        <input type="file" id="imageUpload" accept="image/*"><br>
+        <button onclick="detectImage()">Nhận diện</button><br>
+        <img id="preview" src="#" alt="Ảnh xem trước" style="display: none;">
+        <div id="resultArea"></div>
+    </div>
+
+    <!-- TAB 2: Nhận diện Camera ngoài -->
+    <div id="camera-tab" class="tab-content">
+        <h2>Nhận diện camera (băng chuyền)</h2>
+        <label for="cameraModelSelect">Chọn mô hình:</label>
+        <select id="cameraModelSelect">
+            {% for model in model_names %}
+                <option value="{{ model }}">{{ model }}</option>
+            {% endfor %}
+        </select><br>
+        <button onclick="startCamera()">▶️ Bắt đầu Camera</button>
+        <button onclick="stopCamera()">⏹️ Dừng Camera</button><br>
+        <img id="cameraStream" width="640">
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId !== 'camera-tab') stopCamera();
+        }
+
+        function detectImage() {
+            const input = document.getElementById('imageUpload');
+            const file = input.files[0];
+            const model = document.getElementById('imageModelSelect').value;
+
+            if (!file) {
+                alert("Vui lòng chọn ảnh");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                const base64 = reader.result;
+                document.getElementById('preview').src = base64;
+                document.getElementById('preview').style.display = 'block';
+
+                fetch('/detect_image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64, model: model })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.result) {
+                        document.getElementById('resultArea').innerText = "Kết quả: " + data.result.join(', ');
+                    } else {
+                        document.getElementById('resultArea').innerText = "Không nhận diện được.";
+                    }
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function startCamera() {
+            const model = document.getElementById('cameraModelSelect').value;
+            const streamUrl = `/video_feed?model=${encodeURIComponent(model)}`;
+            document.getElementById('cameraStream').src = streamUrl;
+        }
+
+        function stopCamera() {
+            document.getElementById('cameraStream').src = '';
+        }
+    </script>
+</body>
+</html>
